@@ -2,7 +2,7 @@ name: Deploy Markdown to Pages
 
 on:
   push:
-    branches: [main]   # 你 push 到 main 分支时触发
+    branches: [main]
 
 permissions:
   contents: read
@@ -24,9 +24,24 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
-            posts/*.md          # 告诉它去 posts 文件夹找 .md 文件
-          out_path: dist        # 生成的 .html 会放在 dist 文件夹
+            posts/*.md
+          out_path: dist
           title: Toushou 投手的博客
+
+      # ===== 新增：生成 index.json =====
+      - name: Generate index.json
+        run: |
+          cd dist/posts
+          echo '[' > index.json
+          for f in *.html; do
+            base=$(basename "$f" .html)
+            date=$(echo "$base" | cut -d'-' -f1-3)
+            title=$(echo "$base" | cut -d'-' -f4- | tr '-' ' ')
+            echo '{"filename":"'$f'","title":"'$title'","date":"'$date'"},' >> index.json
+          done
+          sed -i '$ s/,$//' index.json
+          echo ']' >> index.json
+        shell: bash
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
