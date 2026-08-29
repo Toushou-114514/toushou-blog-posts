@@ -1,0 +1,44 @@
+name: Deploy Markdown to Pages
+
+on:
+  push:
+    branches: [main]   # 你 push 到 main 分支时触发
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Convert Markdown to HTML
+        uses: wranders/markdown-to-pages-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            posts/*.md          # 告诉它去 posts 文件夹找 .md 文件
+          out_path: dist        # 生成的 .html 会放在 dist 文件夹
+          title: Toushou 投手的博客
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
