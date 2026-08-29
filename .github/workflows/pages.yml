@@ -17,32 +17,52 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # 1. 检出代码
       - uses: actions/checkout@v4
 
-      - name: Convert Markdown to HTML
-        uses: wranders/markdown-to-pages-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          files: |
-            posts/*.md
-          out_path: dist
-          title: Toushou 投手的博客
+      # 2. 安装依赖
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
 
-      # ===== 新增：生成 index.json =====
+      # 3. 用 pandoc 转换 .md 到 .html
+      - name: Convert Markdown to HTML
+        run: |
+          mkdir -p dist/posts
+          for file in posts/*.md; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file" .md)
+              echo "正在转换: $file"
+              pandoc "$file" -o "dist/posts/${filename}.html" --standalone --metadata title="Toushou 投手的博客"
+            else
+              echo "警告: 没有找到 .md 文件"
+            fi
+          done
+
+      # 4. 生成文章列表文件 index.json
       - name: Generate index.json
         run: |
           cd dist/posts
           echo '[' > index.json
           for f in *.html; do
-            base=$(basename "$f" .html)
-            date=$(echo "$base" | cut -d'-' -f1-3)
-            title=$(echo "$base" | cut -d'-' -f4- | tr '-' ' ')
-            echo '{"filename":"'$f'","title":"'$title'","date":"'$date'"},' >> index.json
+            if [ -f "$f" ]; then
+              base=$(basename "$f" .html)
+              date=$(echo "$base" | cut -d'-' -f1-3)
+              title=$(echo "$base" | cut -d'-' -f4- | tr '-' ' ')
+              echo '{"filename":"'$f'","title":"'$title'","date":"'$date'"},' >> index.json
+            fi
           done
-          sed -i '$ s/,$//' index.json
-          echo ']' >> index.json
+          # 如果 index.json 不为空，移除最后一个逗号并闭合数组
+          if [ -s index.json ]; then
+            sed -i '$ s/,$//' index.json
+            echo ']' >> index.json
+          else
+            echo ']' >> index.json
+          fi
         shell: bash
 
+      # 5. 上传产物
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
